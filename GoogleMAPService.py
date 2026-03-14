@@ -14,7 +14,23 @@ class GoogleMAPService:
         # Code to call Google Maps API and return location data
         pass
 
-    def get_restaurants(self, origin, latitude, longitude, radius=500):
+    def price_level_to_dollar_signs(self, price_level):
+        if price_level == "PRICE_LEVEL_UNSPECIFIED":
+            return "N/A"
+        elif price_level == "PRICE_LEVEL_FREE":
+            return "Free"
+        elif price_level == "PRICE_LEVEL_INEXPENSIVE":
+            return "$"
+        elif price_level == "PRICE_LEVEL_MODERATE":
+            return "$$"
+        elif price_level == "PRICE_LEVEL_EXPENSIVE":
+            return "$$$"
+        elif price_level == "PRICE_LEVEL_VERY_EXPENSIVE":
+            return "$$$$"
+        else:
+            return "N/A"
+                
+    def get_restaurants(self, latitude, longitude, radius=1000) -> dict:
         payload = {
             "includedTypes": ["restaurant"],
             "maxResultCount": 10,
@@ -29,19 +45,19 @@ class GoogleMAPService:
         headers = {
             "Content-Type": "application/json",
             "X-Goog-Api-Key": self.api_key,
-            "X-Goog-FieldMask": "places.displayName,places.rating,places.reviews,places.id,places.userRatingCount"
+            "X-Goog-FieldMask": "places.displayName,places.rating,places.reviews,places.id,places.userRatingCount,places.formattedAddress,places.location,places.reviewSummary,places.priceLevel,places.googleMapsTypeLabel"
         }
         url = "https://places.googleapis.com/v1/places:searchNearby"
         response = requests.post(url, json=payload, headers=headers)
         restaurants = response.json().get('places', [])
-        
-        results = []
+        results = {}
         
         for place in restaurants:
-            name = place.get('displayName', {}).get('text')
-            place_id = place.get('id')
+            name = place.get('displayName', {}).get('text')            
+            placeId = place.get('id')
             rating = place.get('rating', 'N/A')
             userRatingCount = place.get('userRatingCount', 0)
+            typeLabel = place.get('googleMapsTypeLabel', { "text": "N/A" })
             
             print(f"--- {name} ({rating} stars) ---")
             
@@ -54,12 +70,17 @@ class GoogleMAPService:
                     "text": review.get('text', {}).get('text', '')
                 })
             
-            results.append({
+            results[placeId] = {
                 "name": name,
-                "place_id": place_id,
+                "place_id": placeId,
                 "rating": rating,
                 "userRatingCount": userRatingCount,
-                "reviews": reviews
-            })    
+                "reviews": reviews,
+                "reviewSummary": place.get('reviewSummary', "N/A"),
+                "location": place.get('location', None),
+                "formattedAddress": place.get('formattedAddress', "N/A"),
+                "priceLevel": self.price_level_to_dollar_signs(place.get('priceLevel', "N/A")),
+                "typeLabel": typeLabel.get('text', "N/A")
+            }   
 
         return results
