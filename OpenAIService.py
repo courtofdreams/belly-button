@@ -53,5 +53,6 @@ class OpenAIService:
         result = []
         list_of_recommended_restaurants = response.choices[0].message.content.strip().split("|")
         for restaurant_id in list_of_recommended_restaurants:
-            result.append(google_places_data.get(restaurant_id.strip(), {}))
+            if restaurant_id.strip() in google_places_data:
+                result.append(google_places_data.get(restaurant_id.strip(), {}))
         return result
