@@ -1,6 +1,6 @@
 # Belly Button
 
-Belly Button is a SF restaurant recommendation app with a FastAPI backend and a React/Vite frontend. The backend combines Google Maps, Yelp, Reddit, OpenAI, and Anthropic-powered services to generate restaurant recommendations from a keyword query, and the frontend presents those results in a chat-style interface.
+Belly Button is a SF restaurant recommendation app with a FastAPI backend and a React/Vite frontend. The backend combines Google Maps, Yelp, Reddit, OpenAI, and Anthropic services to generate restaurant recommendations from a keyword query, and the frontend presents those results in a chat-style interface.
 
 ## What it does
 
@@ -15,8 +15,7 @@ Belly Button is a SF restaurant recommendation app with a FastAPI backend and a 
 .
 ├── main.py                  # FastAPI app entrypoint
 ├── config.py                # Environment variable configuration
-├── services/                # Google, Yelp, and Reddit data services
-├── OpenAIService.py         # LLM-based ranking / recommendation logic
+├── services/                # Google, Yelp, and Reddit data services and OpenAI/Anthropic integration
 ├── website/                 # React + Vite frontend
 └── start_*.sh               # Convenience scripts for local development
 ```
