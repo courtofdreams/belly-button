@@ -21,12 +21,9 @@ const IconMenu = () => (
 )
 
 const STARTER_PROMPTS = [
-  'Best Italian restaurants in New York 🍝',
-  'Budget-friendly ramen in Chicago 🍜',
+  'Ice cream shops in San Francisco 🍦',
+  'Best ramen in San Francisco 🌉',
   'Romantic dinner in San Francisco 🌉',
-  'Vegetarian options in Los Angeles 🥑',
-  'Quick lunch spots in Miami 🌴',
-  'Upscale Japanese in Seattle ⭐',
 ]
 
 export default function ChatContainer({
@@ -120,7 +117,7 @@ function EmptyState({ onPrompt }) {
       </p>
 
       {/* Nearby CTA */}
-      <button
+      {/* <button
         className={`nearby-btn nearby-btn--${locState}`}
         onClick={handleNearby}
         disabled={locState === 'loading'}
@@ -134,7 +131,7 @@ function EmptyState({ onPrompt }) {
           done:    'Location found ✓',
           error:   'Location denied — try again',
         }[locState]}
-      </button>
+      </button> */}
 
       <div className="chip-grid">
         {STARTER_PROMPTS.map(p => (

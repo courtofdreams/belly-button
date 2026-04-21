@@ -1,6 +1,8 @@
 import os
 from OpenAIService import OpenAIService
-from GoogleMAPService import GoogleMAPService
+from services.GoogleService import GoogleService
+from services.YelpService import YelpService
+from services.RedditService import RedditService
 from config import Settings
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -11,8 +13,17 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 settings = Settings()
-Google_MAP_Service = GoogleMAPService(settings.GOOGLE_MAPS_API_KEY)
-OpenAIService = OpenAIService(settings.OPENAI_API_KEY)
+print("Loaded settings:", settings.dict())
+google = GoogleService(settings.GOOGLE_MAPS_API_KEY)
+openai = OpenAIService(settings.OPENAI_API_KEY)
+yelp = YelpService(settings.YELP_API_KEY)
+reddit = RedditService(
+    reddit_client_id=settings.REDDIT_CLIENT_ID,
+    reddit_client_secret=settings.REDDIT_CLIENT_SECRET,
+    reddit_username=settings.REDDIT_USERNAME,
+    reddit_password=settings.REDDIT_PASSWORD,
+    anthropic_api_key=settings.ANTHROPIC_API_KEY
+)
 
 app = FastAPI(
     title="Belly Button API",
@@ -32,21 +43,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get('/api/google-places')
-def get_google_places(lat: float, lng:float,  radius: int = 1000):
-    restaurants = Google_MAP_Service.get_restaurants(lat, lng, radius=radius)
-    return restaurants
-
 @app.get('/api/health')
 def health_check():
     return {"status": "ok"}
 
-@app.get('/api/restaurants-recommendation')
-def get_restaurants_recommendation(lat: float, lng: float, radius: int = 1000):
-    restaurants = Google_MAP_Service.get_restaurants(lat, lng, radius)
-    recommended_restaurants = OpenAIService.recommend_restaurants(google_places_data=restaurants)
-    return {"result": recommended_restaurants}
+
+@app.get('/api/recommendation')
+def get_recommendation(keyword: str):
+    google_places_data = google.run_pipeline(keyword)
+    yelp_data = yelp.run_pipeline(keyword)
+    reddit_data = reddit.run_pipeline(keyword)
+    recommended_restaurants = openai.recommend_restaurants(
+        google_places_data=google_places_data,
+        yelp_llm_context=yelp_data,
+        reddit_llm_context=reddit_data,  
+    )
+    
+    enriched_recommendations = google.enrich_openai_results(recommended_restaurants)
+    
+    return {"result": enriched_recommendations}
+
 
 def run():
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True, env_file='.env')
+
+

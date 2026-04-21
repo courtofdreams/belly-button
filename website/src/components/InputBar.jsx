@@ -111,7 +111,7 @@ export default function InputBar({ onSend, disabled }) {
     <div className="input-area">
       <div className="input-inner">
         <div className="input-box">
-          <button
+          {/* <button
             className={`locate-btn locate-btn--${locState}`}
             onClick={() => handleLocate('Find restaurants nearby my location')}
             disabled={disabled || locState === 'loading'}
@@ -120,9 +120,9 @@ export default function InputBar({ onSend, disabled }) {
           >
             <IconLocation />
             <span>{locLabel}</span>
-          </button>
+          </button> */}
 
-          <div className="input-divider" />
+          {/* <div className="input-divider" /> */}
 
           <textarea
             ref={textareaRef}

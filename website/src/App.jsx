@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar'
 import ChatContainer from './components/ChatContainer'
 import { generateResponse } from './utils/chatEngine'
 import useAPI from './hooks/useAPI'
+import { restaurants as restaurantsData} from './data/restaurants'
 
 let nextId = 2
 
@@ -34,6 +35,7 @@ const generateEmojiForCuisine = (cuisine) => {
     vegetarian: '🥗',
     seafood: '🐟',
     sandwich: '🥪' ,
+    'ice cream': '🍦',
   }
   return mapping[base] || '🍽️'
 }
@@ -56,6 +58,10 @@ const parseRecommendationsResponse = (response) => {
       tags: [],
       dietary: [],
       occasion: ['dinner', 'lunch'],
+      location: {
+        latitude: item.location.latitude,
+        longitude: item.location.longitude,
+      },
       // TODO: Generate maps URL with actual coordinates
       mapsUrl: `https://maps.google.com/?q=${encodeURIComponent(item.name + ' ' + item.formattedAddress)}'`,
     })
@@ -72,7 +78,7 @@ export default function App() {
   const [loadingStatus, setLoadingStatus] = useState('Thinking…')
   const [context, setContext] = useState({})
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const { fetchRecommendationsByCoordinates } = useAPI()
+  const { fetchRecommendationsByKeyword } = useAPI()
 
   const activeConv = conversations.find(c => c.id === activeId)
   const messages = activeConv?.messages ?? []
@@ -111,14 +117,12 @@ export default function App() {
       setIsTyping(true)
 
       // ── Location-based: call real API ─────────────────────────────
-      if (coords?.latitude && coords?.longitude) {
-        setLoadingStatus('Searching restaurants near you…')
+
+        setLoadingStatus('Searching for recommendations..')
 
         try {
-          const data = await fetchRecommendationsByCoordinates(
-            coords.latitude,
-            coords.longitude
-          )
+          const data = await fetchRecommendationsByKeyword(text);
+          // const data = restaurantsData
 
           let restaurants = [];
           if (Array.isArray(data?.result)) {
@@ -130,7 +134,7 @@ export default function App() {
             id: Date.now() + 1,
             role: 'assistant',
             content: count > 0 ?
-              `I found ${count} restaurants near you. Here are some of the best ones:` : "I couldn't find any restaurants near your location right now. Try a different radius or search by city name.",
+              `I found ${count} places Here are some of the best ones:` : "I couldn't find any restaurants near your location right now. Try a different radius or search by city name.",
             restaurants: Array.isArray(restaurants) ? restaurants : [],
             followUps: [
               'Show Italian restaurants nearby',
@@ -158,33 +162,33 @@ export default function App() {
 
         setIsTyping(false)
         setLoadingStatus('Thinking…')
-        return
-      }
+        // return
 
-      // ── Default: mock response ────────────────────────────────────
-      setLoadingStatus('Thinking…')
-      const delay = 1000 + Math.random() * 900
 
-      setTimeout(() => {
-        const response = generateResponse(text, messages, context)
+      // // ── Default: mock response ────────────────────────────────────
+      // setLoadingStatus('Thinking…')
+      // const delay = 1000 + Math.random() * 900
 
-        appendAssistantMsg(
-          {
-            id: Date.now() + 1,
-            role: 'assistant',
-            content: response.text,
-            restaurants: response.restaurants,
-            followUps: response.followUps,
-          },
-          convId
-        )
+      // setTimeout(() => {
+      //   const response = generateResponse(text, messages, context)
 
-        setContext(response.updatedContext ?? {})
-        setIsTyping(false)
-        setLoadingStatus('Thinking…')
-      }, delay)
+      //   appendAssistantMsg(
+      //     {
+      //       id: Date.now() + 1,
+      //       role: 'assistant',
+      //       content: response.text,
+      //       restaurants: response.restaurants,
+      //       followUps: response.followUps,
+      //     },
+      //     convId
+      //   )
+
+      //   setContext(response.updatedContext ?? {})
+      //   setIsTyping(false)
+      //   setLoadingStatus('Thinking…')
+      // }, delay)
     },
-    [activeId, messages, context, fetchRecommendationsByCoordinates, appendAssistantMsg]
+    [activeId, messages, context, fetchRecommendationsByKeyword, appendAssistantMsg]
   )
 
   const newChat = useCallback(() => {

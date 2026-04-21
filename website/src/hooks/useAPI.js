@@ -16,7 +16,22 @@ const useAPI = () => {
     }
   }
 
-  return { fetchRecommendationsByCoordinates }
+    const fetchRecommendationsByKeyword = async (keyword) => {
+      try {
+        const response = await fetch(
+          `${API_HOST}/api/recommendation?keyword=${keyword}`
+        )
+        if (!response.ok) {
+          throw new Error('Failed to fetch restaurants data')
+        }
+        return await response.json()
+      } catch (error) {
+        console.error('Error fetching restaurants data:', error)
+        throw error
+      }
+    }
+
+  return { fetchRecommendationsByCoordinates, fetchRecommendationsByKeyword }
 }
 
 export default useAPI

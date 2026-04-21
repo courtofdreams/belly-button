@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown'
 import RestaurantCard from './RestaurantCard'
+import MapView from './MapView'
 
 export default function Message({ message, onFollowUp }) {
   const isUser = message.role === 'user'
@@ -21,11 +22,14 @@ export default function Message({ message, onFollowUp }) {
 
         {/* Restaurant cards */}
         {!isUser && message.restaurants && message.restaurants.length > 0 && (
-          <div className="cards-grid">
-            {message.restaurants.map(r => (
-              <RestaurantCard key={r.id} restaurant={r} />
-            ))}
-          </div>
+          <>
+            <MapView results={message.restaurants} />
+            <div className="cards-grid">
+              {message.restaurants.map(r => (
+                <RestaurantCard key={r.id} restaurant={r} />
+              ))}
+            </div>
+          </>
         )}
 
         {/* Follow-up suggestion chips */}
