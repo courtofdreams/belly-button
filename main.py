@@ -1,5 +1,5 @@
 import os
-from OpenAIService import OpenAIService
+from services.OpenAIService import OpenAIService
 from services.GoogleService import GoogleService
 from services.YelpService import YelpService
 from services.RedditService import RedditService
@@ -13,7 +13,6 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 settings = Settings()
-print("Loaded settings:", settings.dict())
 google = GoogleService(settings.GOOGLE_MAPS_API_KEY)
 openai = OpenAIService(settings.OPENAI_API_KEY)
 yelp = YelpService(settings.YELP_API_KEY)
@@ -30,10 +29,6 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# origins = [
-#     "http://localhost:3000",
-#     "http://localhost:5173"
-# ]
 
 app.add_middleware(
     CORSMiddleware,
