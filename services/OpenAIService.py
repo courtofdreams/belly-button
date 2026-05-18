@@ -6,10 +6,44 @@ class OpenAIService:
     def __init__(self, api_key, model="gpt-4"):
         self.api_key = api_key
         self.model = model
-        self.client = OpenAI(api_key=self.api_key)
+        self.client = OpenAI(api_key=self.api_key,)
+        self.message_history = []  # Store conversation history for context
 
     # ── Context Parsers ────────────────────────────────────────────────────────
 
+
+    def find_keyword_from_previous_conversation(self, keyword: str) -> [str]:
+        """
+        Use a simple prompt to check if the keyword is valid (English, restaurant-related).
+        This is a quick heuristic to filter out irrelevant or non-English queries before hitting the main recommendation logic.
+        """
+        prompt = f"""
+        You are a helpful assistant that checks if a user's query is looking for restaurant recommendations in English.
+        Query: "{keyword}"
+        Find what the user is looking for in this query. return the choices for the user query. If the query is not looking for restaurant recommendations, or is not in English, return "invalid". Otherwise, return the original query.
+        the choices should be one of the following:
+        1. "invalid" (if the query is not in English or not restaurant-related)
+        2. Corrected/clarified keyword like "restaurants near me in SF" or "best pizza places in NYC" (if the original query is ambiguous but seems to be about restaurant recommendations)
+        
+        
+        """
+        messages = [self.message_history[-1]] if self.message_history else []
+        messages.extend([
+
+            {"role": "system", "content": "You are a helpful assistant that checks if a user's query is looking for restaurant recommendations in English."},
+            {"role": "user", "content": prompt},
+        ])
+         
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+        )
+
+
+        answer = response.choices[0].message.content
+        return answer
+    
+    
     def parse_google_places_data(self, google_places_data: list[dict]) -> str:
         summary = ""
         for place in google_places_data:
@@ -40,6 +74,7 @@ class OpenAIService:
 
     def recommend_restaurants(
         self,
+        user_query: str,
         google_places_data: list[dict],
         yelp_llm_context: str = "",
         reddit_llm_context: str = "",
@@ -64,6 +99,10 @@ class OpenAIService:
                 - "reddit_context" (str) relevant Reddit snippet for this restaurant
                 - "rank"           (int) 1-indexed final rank
         """
+        
+        ## clear previous conversation history when starting a new recommendation request
+        self.message_history = []
+        
         google_context = self.parse_google_places_data(google_places_data)
         yelp_context   = self.parse_yelp_data(yelp_llm_context)
         reddit_context = self.parse_reddit_data(reddit_llm_context)
@@ -79,7 +118,7 @@ class OpenAIService:
             You are a real-time restaurant recommendation agent that surfaces currently buzzing restaurants by combining Google Maps review signals, Yelp buzz scores, and Reddit community sentiment.
 
             OBJECTIVE
-            Return a ranked list of exactly 3 restaurants that are genuinely active RIGHT NOW — based on recent review volume, sentiment, and rating — not just historically popular.
+            Return a ranked list of exactly 3 restaurants that are genuinely active RIGHT NOW — based on user's query and recent review volume, sentiment, and rating — not just historically popular.
 
             OUT OF SCOPE
             - Restaurants with rating < 4.0 or fewer than 50 total reviews
@@ -105,7 +144,7 @@ class OpenAIService:
             2. Tartine Manufactory
             3. Garden Creamery
 
-            ---
+            ---            
             GOOGLE MAPS DATA (ratings, sentiment scores, review summaries):
             {google_context}
 
@@ -118,9 +157,7 @@ class OpenAIService:
             {reddit_context}
             """
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
+        messages=[
                 {
                     "role": "system",
                     "content": (
@@ -131,8 +168,15 @@ class OpenAIService:
                     ),
                 },
                 {"role": "user", "content": prompt},
-            ],
+        ]
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
         )
+        
+        messages.append({"role": "assistant", "content": response.choices[0].message.content.strip()})
+        
+        self.message_history.extend(messages)
 
         raw_output = response.choices[0].message.content.strip()
         print("OpenAI Response:\n", raw_output)

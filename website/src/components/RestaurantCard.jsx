@@ -46,7 +46,13 @@ const IconMap = () => (
   </svg>
 )
 
-export default function RestaurantCard({ restaurant: r }) {
+export default function RestaurantCard({
+  restaurant: r,
+  rank: _rank,
+  isExpanded = false,
+  onToggleExpand = () => {},
+}) {
+
   return (
     <div className="r-card">
       {/* Image / gradient header */}
@@ -54,12 +60,17 @@ export default function RestaurantCard({ restaurant: r }) {
         className="r-card-img-placeholder"
         style={{ background: r.gradient }}
       >
-        {r.emoji}
+
+        {r.photo_url ? (
+          <img src={r.photo_url} alt={r.name} className="r-card-photo" height="100%" width="100%" />
+        ) : (
+           r.emoji
+        )}
       </div>
 
       <div className="r-card-body">
         <div className="r-card-top">
-          <div className="r-card-name">{r.name}</div>
+          <div className="r-card-name">{_rank}. {r.name}</div>
           <div className="r-card-price">{r.price}</div>
         </div>
 
@@ -73,7 +84,9 @@ export default function RestaurantCard({ restaurant: r }) {
           <span>{r.address}</span>
         </div>
 
-        <p className="r-card-desc">{r.description}</p>
+        <p className={`r-card-desc ${isExpanded ? 'expanded' : ''}`} onClick={onToggleExpand}>
+          {r.description}
+        </p>
 
         <div className="r-card-footer">
           <div className="r-card-tags">

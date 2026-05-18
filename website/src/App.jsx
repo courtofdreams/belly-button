@@ -63,6 +63,7 @@ const parseRecommendationsResponse = (response) => {
         longitude: item.location.longitude,
       },
       // TODO: Generate maps URL with actual coordinates
+      photo_url: item.photo_url || null,
       mapsUrl: `https://maps.google.com/?q=${encodeURIComponent(item.name + ' ' + item.formattedAddress)}'`,
     })
   }
@@ -116,13 +117,14 @@ export default function App() {
 
       setIsTyping(true)
 
-      // ── Location-based: call real API ─────────────────────────────
 
         setLoadingStatus('Searching for recommendations..')
 
         try {
           const data = await fetchRecommendationsByKeyword(text);
-          // const data = restaurantsData
+          if (!data || data.error) {
+            throw new Error(data?.error || '⚠️ I had trouble reaching the restaurant service. Please try again, later, or search by city name instead.')
+          }
 
           let restaurants = [];
           if (Array.isArray(data?.result)) {
@@ -137,10 +139,8 @@ export default function App() {
               `I found ${count} places Here are some of the best ones:` : "I couldn't find any restaurants near your location right now. Try a different radius or search by city name.",
             restaurants: Array.isArray(restaurants) ? restaurants : [],
             followUps: [
-              'Show Italian restaurants nearby',
-              'Filter by budget 💰',
-              'Best-rated only ⭐',
-              'Search a different city',
+              'Show Italian restaurants in SF 🍝',
+              'Best-rated restaurants on San Francisco 🌉',
             ],
           }
 
@@ -151,10 +151,9 @@ export default function App() {
             {
               id: Date.now() + 1,
               role: 'assistant',
-              content:
-                '⚠️ I had trouble reaching the restaurant service. Please try again, or search by city name instead.',
+              content: error.message || 'An error occurred while fetching restaurant recommendations. Please try again later.',
               restaurants: [],
-              followUps: ['Try New York restaurants 🗽', 'Try San Francisco 🌉'],
+              followUps: ["Show Italian restaurants in SF 🍝", "Best-rated restaurants on San Francisco 🌉"],
             },
             convId
           )

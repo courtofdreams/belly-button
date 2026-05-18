@@ -109,7 +109,7 @@ function EmptyState({ onPrompt }) {
 
   return (
     <div className="empty-state">
-      <div className="empty-icon">🍴</div>
+      <img src="/logo.png" alt="Belly Button Logo" className="app-logo" width="100" height="100" />
       <h2>Find your next great meal</h2>
       <p>
         Tell me where you are, what you're craving, your budget, and the

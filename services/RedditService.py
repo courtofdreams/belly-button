@@ -12,6 +12,7 @@ import praw
 from sentence_transformers import SentenceTransformer
 
 
+
 class RedditService:
 
     # ── Default configuration ──────────────────────────────────────────────────
@@ -64,6 +65,9 @@ class RedditService:
         self._embed_model: SentenceTransformer | None = None
         self._embeddings_normed: np.ndarray | None    = None
         self._indexed_comments: list[dict]            = []
+        if self._embed_model is None:
+            print(f"Loading embedding model ({self.EMBEDDING_MODEL})...")
+            self._embed_model = SentenceTransformer(self.EMBEDDING_MODEL)
 
     # ── 0. Utilities ───────────────────────────────────────────────────────────
 
@@ -396,6 +400,64 @@ class RedditService:
             pass
         return []
 
+    def _extract_restaurants_from_comments(self, comments: list[dict]) -> dict[str, list[str]]:
+        """
+        Batch restaurant extraction for a set of comments.
+
+        Returns a mapping from comment_id to extracted restaurant names. This
+        keeps the downstream ranking logic unchanged while reducing Claude
+        requests from one per comment to one per batch.
+        """
+        if not comments:
+            return {}
+
+        payload_lines = []
+        for comment in comments:
+            comment_id = comment["comment_id"]
+            body = comment["comment_body"][:self.MAX_COMMENT_CHARS_FOR_LLM]
+            payload_lines.append(f'{comment_id}: "{body}"')
+
+        prompt = (
+            "Extract all restaurant, cafe, bar, or food establishment names mentioned in each Reddit comment.\n"
+            "Return ONLY a JSON object mapping each comment_id to a JSON array of names.\n"
+            "Use the exact comment_id keys provided. If no specific places are named, return an empty array for that comment_id.\n"
+            "Do not include any commentary, explanation, or markdown.\n\n"
+            "Comments:\n"
+            + "\n".join(payload_lines)
+            + "\n\nExamples:\n"
+            'abc123: "Try Nopalito and Tartine" -> {"abc123": ["Nopalito", "Tartine"]}\n'
+            'def456: "I love the burritos there" -> {"def456": []}\n'
+            'ghi789: "Bi-Rite is overrated, Garden Creamery is better" -> {"ghi789": ["Bi-Rite", "Garden Creamery"]}'
+        )
+
+        try:
+            response = self.claude.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=400,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = response.content[0].text.strip()
+            text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.MULTILINE).strip()
+            result = json.loads(text)
+            if isinstance(result, dict):
+                normalized: dict[str, list[str]] = {}
+                for comment in comments:
+                    comment_id = comment["comment_id"]
+                    names = result.get(comment_id, [])
+                    if isinstance(names, list):
+                        normalized[comment_id] = [
+                            str(name).strip()
+                            for name in names
+                            if name and isinstance(name, (str, int, float))
+                        ]
+                    else:
+                        normalized[comment_id] = []
+                return normalized
+        except Exception:
+            pass
+
+        return {comment["comment_id"]: [] for comment in comments}
+
     def _normalize_key(self, name: str) -> str:
         """Dedup key: 'Bi-Rite Creamery' / 'Bi-Rite' / 'bi rite' → same key."""
         key = re.sub(r"[\-'\s\.,&]", "", name.lower().strip())
@@ -419,8 +481,11 @@ class RedditService:
         restaurants: dict = defaultdict(lambda: {"display_name": None, "mentions": []})
 
         print(f"Extracting restaurants from {len(comments)} comments...")
+        extracted_by_comment = self._extract_restaurants_from_comments(comments)
+
         for comment in comments:
-            names = self._extract_restaurants_from_comment(comment["comment_body"])
+            # names = self._extract_restaurants_from_comment(comment["comment_body"])
+            names = extracted_by_comment.get(comment["comment_id"], [])
             for name in names:
                 key = self._normalize_key(name)
                 if not key:
@@ -492,7 +557,7 @@ class RedditService:
             "=" * 60,
             "",
         ]
-
+        
         if not ranked:
             lines.append("No restaurants extracted from the retrieved comments.")
             lines.append(
@@ -547,9 +612,12 @@ class RedditService:
         """
         print(f"── Semantic search: {query} ──")
         comments = self.semantic_search(query, top_n=self.TOP_COMMENTS_RETRIEVE)
-
+       
         print(f"\n── Extracting & ranking restaurants from {len(comments)} comments ──")
         ranked = self._aggregate_and_rank(comments, top_k=self.TOP_RESTAURANTS_OUTPUT)
+        
+        for r in ranked:
+            print(f"{r['display_name']} (score: {r['score']}, mentions: {r['mention_count']})")
 
         print("\n── Formatting for LLM ──")
         return self.format_as_llm_context(query, ranked, len(comments))

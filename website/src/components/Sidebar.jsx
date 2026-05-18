@@ -40,7 +40,7 @@ export default function Sidebar({ conversations, activeId, onSelect, onNewChat, 
 
       <div className="sidebar-footer">
         <div className="brand-row">
-          <div className="brand-icon">🍴</div>
+          <div className="brand-icon"><img src="/logo.png" alt="Belly Button Logo" className="app-logo" width="40" height="40" /></div>
           <div>
             <div className="brand-name">Belly Button</div>
             <div className="brand-sub">Restaurant Guide</div>

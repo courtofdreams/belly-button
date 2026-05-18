@@ -1,4 +1,4 @@
-const API_HOST = import.meta.env.VITE_API_HOST || 'http://localhost:8000'
+const API_HOST = import.meta.env.VITE_API_HOST || 'http://10.43.43.63:8000'
 
 const useAPI = () => {
   const fetchRecommendationsByCoordinates = async (lat, lng, radius = 1000) => {

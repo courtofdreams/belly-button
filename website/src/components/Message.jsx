@@ -1,14 +1,20 @@
+import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import RestaurantCard from './RestaurantCard'
 import MapView from './MapView'
 
 export default function Message({ message, onFollowUp }) {
   const isUser = message.role === 'user'
+  const [expandedCardId, setExpandedCardId] = useState(null)
+
+  const toggleCardExpand = (cardId) => {
+    setExpandedCardId((prev) => (prev === cardId ? null : cardId))
+  }
 
   return (
     <div className={`msg-row ${isUser ? 'user' : 'assistant'}`}>
       <div className="msg-avatar">
-        {isUser ? 'U' : '🍴'}
+        {isUser ? 'U' : <img src="/logo.png" alt="Belly Button Logo" className="app-logo" width="34" height="34" />}
       </div>
 
       <div className="msg-body">
@@ -25,9 +31,18 @@ export default function Message({ message, onFollowUp }) {
           <>
             <MapView results={message.restaurants} />
             <div className="cards-grid">
-              {message.restaurants.map(r => (
-                <RestaurantCard key={r.id} restaurant={r} />
-              ))}
+              {message.restaurants.map((r, index) => {
+                const cardId = r.id ?? `${message.id}-${index}`
+                return (
+                  <RestaurantCard
+                    key={cardId}
+                    restaurant={r}
+                    rank={index + 1}
+                    isExpanded={expandedCardId === cardId}
+                    onToggleExpand={() => toggleCardExpand(cardId)}
+                  />
+                )
+              })}
             </div>
           </>
         )}

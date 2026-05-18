@@ -50,8 +50,11 @@ class YelpService:
                 "sort_by": "best_match",
             },
         )
+        print(f"Yelp API response for term='{term}' in location='{location}':")
         print("Status code:", response.status_code)
         data = response.json()
+        for data in data["businesses"]:
+            print(f"{data['name']} with rating {data['rating']} and {data['review_count']} reviews")
 
         if "businesses" not in data:
             print("API Error:", data)

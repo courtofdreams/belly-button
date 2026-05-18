@@ -43,12 +43,32 @@ def health_check():
     return {"status": "ok"}
 
 
+def is_has_location_in_SF(keyword: str) -> bool:
+    location_indicators = ["near me", "nearby", "close by", "in sf", "at sf", "around sf", "near sf", "San Francisco", "downtown sf"]
+    for indicator in location_indicators:
+        if indicator.lower() in keyword.lower():
+            return True
+    return False
+
+
 @app.get('/api/recommendation')
 def get_recommendation(keyword: str):
+    
+    if not keyword:
+        return {"error": "Keyword query parameter is required."}
+    
+    if len(keyword) > 100:
+        return {"error": "Keyword is too long. Please limit to 100 characters."}
+    
+    if not is_has_location_in_SF(keyword):
+        return {"error": "The system currently only supports restaurant recommendations in San Francisco. Please include a location indicator in your query (e.g. 'near me', 'in SF', 'around SF') to get relevant restaurant recommendations."}
+    
+    
     google_places_data = google.run_pipeline(keyword)
     yelp_data = yelp.run_pipeline(keyword)
     reddit_data = reddit.run_pipeline(keyword)
     recommended_restaurants = openai.recommend_restaurants(
+        user_query=keyword,
         google_places_data=google_places_data,
         yelp_llm_context=yelp_data,
         reddit_llm_context=reddit_data,  

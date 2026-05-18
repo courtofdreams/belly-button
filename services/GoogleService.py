@@ -12,7 +12,6 @@ class GoogleService:
         self.api_key = api_key
         self._sia = SentimentIntensityAnalyzer()
 
-
     def extract_location(self, query: str) -> str:
         """
         Parse the location out of a natural-language query.
@@ -63,7 +62,9 @@ class GoogleService:
             reviews = [
                 {
                     "rating": review.get("rating", "N/A"),
-                    "text":   review.get("text", {}).get("text", ""),
+                    "text": review.get("text", {}).get("text", ""),
+                    "publishTime": review.get("publishTime"),
+                    "relativePublishTimeDescription": review.get("relativePublishTimeDescription"),
                 }
                 for review in place.get("reviews", [])
             ]
@@ -218,18 +219,22 @@ class GoogleService:
         return self._parse_places(places)
 
     def compute_score(self, place: dict) -> float:
-        """
-        Basic heuristic score: 70% rating + 30% log(review_count).
-
+        """ Compute a heuristic score for a restaurant based on its rating and review count.
+            This is a simple weighted formula that gives more weight to rating but also
+            considers the number of reviews to boost popular places.
         Args:
-            place: Single restaurant dict from search results.
-
+            place: dict containing at least 'rating' and 'userRatingCount' keys.
         Returns:
-            float score
+            float score where higher is better.
         """
-        rating       = place.get("rating", 0)
-        review_count = place.get("userRatingCount", 0)
-        return 0.7 * rating + 0.3 * math.log1p(review_count)
+        rating = float(place.get("rating") or 0)
+        review_count = int(place.get("userRatingCount") or 0)
+
+        rating_score = rating / 5
+        review_score = min(math.log1p(review_count) / math.log1p(1000), 1)
+
+        return 0.7 * rating_score + 0.3 * review_score
+        
 
     def recommend_restaurants(self, restaurants: dict, top_k: int = 4) -> list[dict]:
         """
@@ -331,20 +336,31 @@ class GoogleService:
 
     def _compute_score_sentiment(self, place: dict) -> float:
         """
-        Sentiment-enhanced heuristic score:
-        50% rating + 20% log(review_count) + 30% sentiment_score.
+        Compute a heuristic score for a restaurant that combines rating, review count, and sentiment score. This gives a more holistic ranking that considers not just
+        how good the reviews are (sentiment) but also how many people have reviewed it (popularity) and the average
+        rating (quality). The weights can be adjusted based on desired emphasis.
+        Formula:
+            final_score = 0.5 * (rating / 5) + 0.2 * (log(review_count + 1) / log(1000 + 1)) + 0.3 * ((sentiment_score + 1) / 2)
 
-        Args:
-            place: Restaurant dict that already has sentiment fields attached.
-
-        Returns:
-            float score
+        Where:
+            - rating is normalized to [0,1] by dividing by 5.
+            - review_count is transformed with log to reduce skew and normalized to [0,1] by dividing by log(1000+1).
+            - sentiment_score is transformed from [-1,1] to [0,1] by (sentiment_score + 1) / 2.
+            - Weights (0.5, 0.2, 0.3) can be tuned based on importance of each factor.
         """
+        rating = float(place.get("rating") or 0)
+        review_count = int(place.get("userRatingCount") or 0)
+        sentiment = place.get("sentiment_score", 0)
+
+        rating_score = rating / 5
+        review_score = min(math.log1p(review_count) / math.log1p(1000), 1)
+        sentiment_score = (sentiment + 1) / 2
+
         return (
-            0.5 * place.get("rating", 0)
-            + 0.2 * math.log1p(place.get("userRatingCount", 0))
-            + 0.3 * place.get("sentiment_score", 0)
-        )
+                0.5 * rating_score
+                + 0.2 * review_score
+                + 0.3 * sentiment_score
+            )
 
     def recommend_restaurants_with_sentiment(self, restaurants: dict, top_k: int = 4) -> list[dict]:
         """
@@ -469,6 +485,9 @@ class GoogleService:
 
         return self.recommend_restaurants_with_sentiment(results, top_k=top_k)
     
+    
+    
+    
     def search_by_name(self, name: str, location: str = "San Francisco") -> dict | None:
         """
         Look up a single restaurant by name using the Places Text Search API.
@@ -496,7 +515,7 @@ class GoogleService:
             "Content-Type":   "application/json",
             "X-Goog-Api-Key": self.api_key,
             "X-Goog-FieldMask": (
-                "places.displayName,places.rating,places.reviews,places.id,"
+                "places.displayName,places.rating,places.reviews,places.id,places.photos,"
                 "places.userRatingCount,places.formattedAddress,places.location,"
                 "places.reviewSummary,places.priceLevel,places.googleMapsTypeLabel,"
                 "places.websiteUri,places.nationalPhoneNumber,places.regularOpeningHours"
@@ -528,6 +547,11 @@ class GoogleService:
         place["phone"]   = raw.get("nationalPhoneNumber", "N/A")
         hours = raw.get("regularOpeningHours", {}).get("weekdayDescriptions", [])
         place["openingHours"] = hours
+        photos = raw.get("photos", [])
+        if len(photos) > 0:
+            photo_name = photos[0]["name"]
+            photo_url = f"https://places.googleapis.com/v1/{photo_name}/media?maxWidthPx=800&key={self.api_key}"
+            place["photo_url"] = photo_url
 
         print(f"Found: {place['name']} ({place['rating']} \u2605, {place['formattedAddress']})")
         return place
